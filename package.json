@@ -1,0 +1,18 @@
+{
+  "name": "@yrfns/pi-agent-reach",
+  "version": "0.3.0",
+  "description": "Native pi extension wrapping Agent Reach CLI for 14 internet channels — search, read, status for Twitter, Reddit, Bilibili, 小红书, YouTube, GitHub, RSS, V2EX, LinkedIn",
+  "type": "module",
+  "keywords": ["pi-package", "agent-reach", "search", "social", "web", "browser"],
+  "author": "pi-agent-reach contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YrFnS/pi-agent-reach.git"
+  },
+  "homepage": "https://github.com/YrFnS/pi-agent-reach",
+  "pi": {
+    "extensions": ["./index.ts"],
+    "skills": ["./skill"]
+  }
+}
