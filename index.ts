@@ -116,8 +116,6 @@ export default function (pi: ExtensionAPI) {
 			const channel = params.channel as string;
 			const num = (params.numResults as number) || 5;
 			const safeQ = escapeShellArg(query);
-			const msg = (t: string) =>
-				onUpdate?.({ content: [{ type: "text", text: t }], details: {} });
 
 			let stdout: string;
 			let label: string;
@@ -125,7 +123,14 @@ export default function (pi: ExtensionAPI) {
 			try {
 				switch (channel) {
 					case "web":
-						msg(`Searching web for "${query}" via Exa...`);
+						onUpdate?.({
+							content: [
+								{
+									type: "text",
+									text: `Searching web for "${query}" via Exa...`,
+								},
+							],
+						});
 						stdout = await execCmd(
 							"mcporter",
 							[
@@ -133,30 +138,35 @@ export default function (pi: ExtensionAPI) {
 								`exa.web_search_exa(query: "${safeQ}", numResults: ${num})`,
 							],
 							signal,
-							15_000,
 						);
 						label = "Exa";
 						break;
 
 					case "twitter":
-						msg(`Searching Twitter for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{ type: "text", text: `Searching Twitter for "${query}"...` },
+							],
+						});
 						stdout = await execCmd(
 							"twitter",
 							["search", query, "-n", String(num)],
 							signal,
-							15_000,
 						);
 						label = "Twitter";
 						break;
 
 					case "reddit": {
-						msg(`Searching Reddit for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{ type: "text", text: `Searching Reddit for "${query}"...` },
+							],
+						});
 						try {
 							stdout = await execCmd(
 								"opencli",
 								["reddit", "search", query, "-f", "yaml"],
 								signal,
-								10_000,
 							);
 							label = "Reddit (OpenCLI)";
 						} catch {
@@ -164,7 +174,6 @@ export default function (pi: ExtensionAPI) {
 								"rdt",
 								["search", query, "--limit", String(num)],
 								signal,
-								10_000,
 							);
 							label = "Reddit (rdt-cli)";
 						}
@@ -172,29 +181,42 @@ export default function (pi: ExtensionAPI) {
 					}
 
 					case "bilibili":
-						msg(`Searching Bilibili for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{ type: "text", text: `Searching Bilibili for "${query}"...` },
+							],
+						});
 						stdout = await execCmd(
 							"bili",
 							["search", query, "--type", "video", "-n", String(num)],
 							signal,
-							10_000,
 						);
 						label = "Bilibili";
 						break;
 
 					case "xiaohongshu":
-						msg(`Searching xiaohongshu for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{
+									type: "text",
+									text: `Searching xiaohongshu for "${query}"...`,
+								},
+							],
+						});
 						stdout = await execCmd(
 							"opencli",
 							["xiaohongshu", "search", query, "-f", "yaml"],
 							signal,
-							10_000,
 						);
 						label = "xiaohongshu";
 						break;
 
 					case "linkedin":
-						msg(`Searching LinkedIn for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{ type: "text", text: `Searching LinkedIn for "${query}"...` },
+							],
+						});
 						stdout = await execCmd(
 							"mcporter",
 							[
@@ -202,13 +224,16 @@ export default function (pi: ExtensionAPI) {
 								`linkedin.search_people(keyword: "${safeQ}", limit: ${num})`,
 							],
 							signal,
-							15_000,
 						);
 						label = "LinkedIn";
 						break;
 
 					case "github":
-						msg(`Searching GitHub for "${query}"...`);
+						onUpdate?.({
+							content: [
+								{ type: "text", text: `Searching GitHub for "${query}"...` },
+							],
+						});
 						stdout = await execCmd(
 							"gh",
 							[
@@ -221,13 +246,14 @@ export default function (pi: ExtensionAPI) {
 								String(num),
 							],
 							signal,
-							10_000,
 						);
 						label = "GitHub";
 						break;
 
 					case "v2ex":
-						msg(`Fetching V2EX hot topics...`);
+						onUpdate?.({
+							content: [{ type: "text", text: `Fetching V2EX hot topics...` }],
+						});
 						stdout = await execCmd(
 							"curl",
 							[
@@ -237,7 +263,6 @@ export default function (pi: ExtensionAPI) {
 								"User-Agent: agent-reach/1.0",
 							],
 							signal,
-							10_000,
 						);
 						label = "V2EX";
 						break;
@@ -246,26 +271,24 @@ export default function (pi: ExtensionAPI) {
 						throw new Error(`Unknown channel: ${channel}`);
 				}
 			} catch (err: unknown) {
-				const emsg = err instanceof Error ? err.message : String(err);
-				msg(
-					`${channel} search failed (${emsg}), falling back to web search...`,
+				const msg = err instanceof Error ? err.message : String(err);
+				onUpdate?.({
+					content: [
+						{
+							type: "text",
+							text: `${channel} search failed (${msg}), falling back to Exa...`,
+						},
+					],
+				});
+				stdout = await execCmd(
+					"mcporter",
+					[
+						"call",
+						`exa.web_search_exa(query: "${safeQ} ${channel}", numResults: ${num})`,
+					],
+					signal,
 				);
-				// Fallback: use curl + Jina to search
-				try {
-					stdout = await execCmd(
-						"curl",
-						[
-							"-s",
-							`https://r.jina.ai/https://www.google.com/search?q=${encodeURIComponent(query + " " + channel)}`,
-						],
-						signal,
-						10_000,
-					);
-					label = "Web (fallback)";
-				} catch {
-					stdout = `Search failed for channel "${channel}": ${emsg}`;
-					label = "failed";
-				}
+				label = `Exa (${channel} fallback)`;
 			}
 
 			const truncated = truncate(stdout);
@@ -328,8 +351,6 @@ export default function (pi: ExtensionAPI) {
 			const url = params.url as string;
 			let stdout: string;
 			let method: string;
-			const msg = (t: string) =>
-				onUpdate?.({ content: [{ type: "text", text: t }], details: {} });
 
 			const isYT = /youtube\.com|youtu\.be/.test(url);
 			const isBL = /bilibili\.com|bv[a-z0-9]+/i.test(url);
@@ -341,7 +362,11 @@ export default function (pi: ExtensionAPI) {
 
 			try {
 				if (isYT) {
-					msg("Extracting YouTube subtitles...");
+					onUpdate?.({
+						content: [
+							{ type: "text", text: `Extracting YouTube subtitles...` },
+						],
+					});
 					stdout = await execCmd(
 						"yt-dlp",
 						["--write-sub", "--skip-download", "-o", "/tmp/%(id)s", url],
@@ -350,13 +375,14 @@ export default function (pi: ExtensionAPI) {
 					);
 					method = "yt-dlp";
 				} else if (isBL) {
-					msg("Extracting Bilibili content...");
+					onUpdate?.({
+						content: [{ type: "text", text: `Extracting Bilibili content...` }],
+					});
 					try {
 						stdout = await execCmd(
 							"opencli",
 							["bilibili", "subtitle", url, "-f", "yaml"],
 							signal,
-							15_000,
 						);
 						method = "OpenCLI bilibili";
 					} catch {
@@ -364,29 +390,34 @@ export default function (pi: ExtensionAPI) {
 							"yt-dlp",
 							["--dump-json", "--no-download", url],
 							signal,
-							30_000,
+							60_000,
 						);
 						method = "yt-dlp";
 					}
 				} else if (isXHS) {
-					msg("Reading xiaohongshu post...");
+					onUpdate?.({
+						content: [{ type: "text", text: `Reading xiaohongshu post...` }],
+					});
 					stdout = await execCmd(
 						"opencli",
 						["xiaohongshu", "note", url, "-f", "yaml"],
 						signal,
-						15_000,
 					);
 					method = "OpenCLI xhs";
 				} else if (isTW) {
-					msg("Reading tweet...");
-					stdout = await execCmd("twitter", ["tweet", url], signal, 15_000);
+					onUpdate?.({ content: [{ type: "text", text: `Reading tweet...` }] });
+					stdout = await execCmd("twitter", ["tweet", url], signal);
 					method = "twitter-cli";
 				} else if (isRD) {
-					msg("Reading Reddit post...");
-					stdout = await execCmd("rdt", ["read", url], signal, 15_000);
+					onUpdate?.({
+						content: [{ type: "text", text: `Reading Reddit post...` }],
+					});
+					stdout = await execCmd("rdt", ["read", url], signal);
 					method = "rdt-cli";
 				} else if (isRSS) {
-					msg("Parsing RSS feed...");
+					onUpdate?.({
+						content: [{ type: "text", text: `Parsing RSS feed...` }],
+					});
 					stdout = await execCmd(
 						"python3",
 						[
@@ -397,27 +428,35 @@ export default function (pi: ExtensionAPI) {
 								"print(json.dumps(entries, ensure_ascii=False, indent=2))",
 						],
 						signal,
-						10_000,
 					);
 					method = "feedparser";
 				} else {
-					msg("Reading web page via Jina Reader...");
+					onUpdate?.({
+						content: [
+							{ type: "text", text: `Reading web page via Jina Reader...` },
+						],
+					});
 					stdout = await execCmd(
 						"curl",
 						["-s", `https://r.jina.ai/${url}`],
 						signal,
-						15_000,
 					);
 					method = "Jina Reader";
 				}
 			} catch (err: unknown) {
-				const emsg = err instanceof Error ? err.message : String(err);
-				msg(`Primary reader failed (${emsg}), trying Jina Reader...`);
+				const msg = err instanceof Error ? err.message : String(err);
+				onUpdate?.({
+					content: [
+						{
+							type: "text",
+							text: `Primary reader failed (${msg}), trying Jina Reader...`,
+						},
+					],
+				});
 				stdout = await execCmd(
 					"curl",
 					["-s", `https://r.jina.ai/${url}`],
 					signal,
-					15_000,
 				);
 				method = "Jina Reader (fallback)";
 			}
@@ -462,43 +501,35 @@ export default function (pi: ExtensionAPI) {
 		name: "reach_status",
 		label: "Reach Status",
 		description:
-			"Check which Agent Reach channels/platforms are active and healthy. Shows installed backends and their status.",
+			"Run Agent Reach doctor to check which channels/platforms are active and healthy. Shows installed backends, auth status, and any issues.",
 		parameters: Type.Object({}),
 		promptSnippet: "Check Agent Reach channel health and status",
 
 		async execute(_id, _params, signal, onUpdate) {
 			onUpdate?.({
 				content: [{ type: "text", text: "Checking Agent Reach channels..." }],
-				details: {},
 			});
 
 			// Check which upstream CLIs are installed using "where" (fast, no hang)
-			// Group by unique binary to avoid duplicates
 			const checks: [string, string][] = [
 				["Web (Jina)", "curl"],
-				["Web (Exa/mcporter)", "mcporter"],
-				["GitHub (gh)", "gh"],
-				["YouTube (yt-dlp)", "yt-dlp"],
-				["Twitter (twitter-cli)", "twitter"],
-				["Bilibili (bili-cli)", "bili"],
-				["Reddit (rdt-cli)", "rdt"],
-				["OpenCLI (Reddit/小红书/B站)", "opencli"],
-				["LinkedIn (MCP)", "mcporter"],
-				["RSS (feedparser)", "python3"],
-				["V2EX (curl)", "curl"],
+				["Web (Exa)", "mcporter"],
+				["GitHub", "gh"],
+				["YouTube", "yt-dlp"],
+				["Twitter", "twitter"],
+				["Bilibili", "bili"],
+				["Reddit (OpenCLI)", "opencli"],
+				["Reddit (rdt)", "rdt"],
+				["小红书 (OpenCLI)", "opencli"],
+				["LinkedIn", "mcporter"],
+				["RSS", "python3"],
+				["V2EX", "curl"],
 			];
 
 			const lines: string[] = [];
 			const details: Record<string, unknown> = {};
-			const seen = new Set<string>();
 
 			for (const [name, cmd] of checks) {
-				// Skip duplicate binary checks (curl and mcporter appear multiple times)
-				if (seen.has(cmd)) {
-					details[name] = { status: "ok", backend: cmd, note: "same as above" };
-					continue;
-				}
-				seen.add(cmd);
 				try {
 					const res = await execCmd(
 						"cmd",
@@ -507,10 +538,10 @@ export default function (pi: ExtensionAPI) {
 						3_000,
 					);
 					const ok = res.trim().length > 0;
-					lines.push(`  ${ok ? "✅" : "❌"} ${name}`);
+					lines.push(`  ${ok ? "✅" : "❌"} ${name} (${cmd})`);
 					details[name] = { status: ok ? "ok" : "missing", backend: cmd };
 				} catch {
-					lines.push(`  ❌ ${name}`);
+					lines.push(`  ❌ ${name} (${cmd})`);
 					details[name] = { status: "missing", backend: cmd };
 				}
 			}
@@ -538,20 +569,12 @@ export default function (pi: ExtensionAPI) {
 		description: "Show Agent Reach channel health and status",
 		handler: async (_args, ctx) => {
 			try {
-				const res = await execCmd(
-					"agent-reach",
-					["doctor", "--json"],
-					undefined,
-					8_000,
-				);
+				const res = await runReach(["doctor", "--json"], undefined, 15_000);
 				let doctor: DoctorResult;
 				try {
-					const text = res.trim();
-					const jsonStart = text.indexOf("{");
-					if (jsonStart === -1) throw new Error("no JSON found");
-					doctor = JSON.parse(text.slice(jsonStart)) as DoctorResult;
+					doctor = JSON.parse(res.stdout) as DoctorResult;
 				} catch {
-					ctx.ui.notify(`Doctor output: ${res.slice(0, 200)}`, "info");
+					ctx.ui.notify(`Doctor: ${res.stdout.slice(0, 200)}`, "info");
 					return;
 				}
 				const values = Object.entries(doctor);
@@ -580,29 +603,22 @@ export default function (pi: ExtensionAPI) {
 			ctx.ui.notify("Installing Agent Reach CLI + all channels...", "info");
 			try {
 				// Step 1: Install Agent Reach Python package
-				ctx.ui.notify("Step 1/5: pip install agent-reach...", "info");
+				ctx.ui.notify("Step 1/4: pip install agent-reach...", "info");
 				await pi.exec("pip", [
 					"install",
 					"https://github.com/Panniantong/agent-reach/archive/main.zip",
 				]);
 
-				// Step 2: Install all channels (may fail on OpenCLI for Windows — that's OK)
+				// Step 2: Install all channels (auto-detects OS, installs CLIs)
 				ctx.ui.notify(
-					"Step 2/5: agent-reach install --channels=all...",
+					"Step 2/4: agent-reach install --channels=all...",
 					"info",
 				);
-				try {
-					await pi.exec("agent-reach", ["install", "--channels=all"]);
-				} catch {
-					ctx.ui.notify(
-						"Some channels failed to install — continuing...",
-						"warning",
-					);
-				}
+				await pi.exec("agent-reach", ["install", "--channels=all"]);
 
 				// Step 3: Install mcporter (Exa search backend)
 				ctx.ui.notify(
-					"Step 3/5: Installing mcporter (search backend)...",
+					"Step 3/4: Installing mcporter (search backend)...",
 					"info",
 				);
 				try {
@@ -622,7 +638,7 @@ export default function (pi: ExtensionAPI) {
 
 				// Step 4: Install rdt-cli (Reddit backend)
 				ctx.ui.notify(
-					"Step 4/5: Installing rdt-cli (Reddit backend)...",
+					"Step 4/4: Installing rdt-cli (Reddit backend)...",
 					"info",
 				);
 				try {
